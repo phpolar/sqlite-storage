@@ -15,6 +15,11 @@
       <directory>tests/unit</directory>
     </testsuite>
   </testsuites>
+  <coverage pathCoverage="true">
+    <report>
+      <clover outputFile="build/logs/clover.xml" />
+    </report>
+  </coverage>
   <source>
     <include>
       <directory suffix=".php">src</directory>
