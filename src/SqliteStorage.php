@@ -256,7 +256,7 @@ final class SqliteStorage extends AbstractStorage implements
             <<<SQL
             INSERT INTO "{$this->tableName}" ({$cols})
             VALUES ({$bindVariables})
-            ON CONFLICT DO UPDATE SET
+            ON CONFLICT([id]) DO UPDATE SET
             {$colStmts};
             SQL
         );
