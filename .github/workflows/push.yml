@@ -10,6 +10,8 @@ on:
       - 'phpunit*.xml'
 jobs:
   coverage:
+    permissions:
+      contents: write
     uses: phpolar/github-workflows/.github/workflows/coverage.yml@v1
   os_build_check:
-    uses: phpolar/github-workflows/.github/workflows/os-build-check.yml@v1
+    uses: ./.github/workflows/os-build-check.yml
