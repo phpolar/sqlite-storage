@@ -1,0 +1,4 @@
+/.phpunit.cache
+/vendor
+/build
+/tests/integration/*.db

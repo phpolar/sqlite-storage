@@ -1,0 +1,5 @@
+{
+    "intelephense.diagnostics.undefinedConstants": false,
+    "intelephense.environment.phpVersion": "8.4.13",
+    "intelephense.maxMemory": 512
+}
