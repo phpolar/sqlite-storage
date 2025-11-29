@@ -11,8 +11,11 @@ use Phpolar\Storage\{
     Loadable,
     Persistable,
 };
+use Phpolar\SqliteStorage\Exception\{
+    NonExistentClassException,
+    NonExistentPrimaryKeyAccessorException,
+};
 use SQLite3;
-use SQLite3Exception;
 
 /**
  * Adds support for managing data in a SQLite database.
@@ -25,6 +28,8 @@ final class SqliteReadOnlyStorage extends AbstractStorage implements
     Loadable,
     Persistable
 {
+    use SqliteReadTrait;
+
     public function __construct(
         /**
          * The SQLite3 connection to use.
@@ -65,42 +70,6 @@ final class SqliteReadOnlyStorage extends AbstractStorage implements
     public function close(): void
     {
         $this->connection->close();
-    }
-
-    /**
-     * Load all data for the given type into memory.
-     *
-     * The class must have either
-     * If the items have a `getPrimaryKey` method,
-     * its return value will be used as the key
-     * in the in-memory collection. Otherwise,
-     */
-    public function load(): void
-    {
-        $result = $this->connection->query(
-            <<<SQL
-            SELECT * FROM "{$this->tableName}";
-            SQL
-        );
-
-        if ($result === false) {
-            $this->clear();
-
-            throw new SQLite3Exception(
-                message: $this->connection->lastErrorMsg(),
-                code: $this->connection->lastErrorCode(),
-            );
-        }
-
-        while (($row = $result->fetchArray(SQLITE3_ASSOC)) !== false) {
-            $item = new $this->typeClassName($row);
-            $key = (string) (method_exists($item, "getPrimaryKey") === true
-                ? $item->getPrimaryKey()
-                : (property_exists($item, "id") === true
-                    ? $item->id
-                    : "" /* The class is already checked for the getPrimaryKey method or id property */));
-            $this->save($key, $item);
-        }
     }
 
     /**

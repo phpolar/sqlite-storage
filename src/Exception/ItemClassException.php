@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Phpolar\SqliteStorage;
+namespace Phpolar\SqliteStorage\Exception;
 
 use DomainException;
 

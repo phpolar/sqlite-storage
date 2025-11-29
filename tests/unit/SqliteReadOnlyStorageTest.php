@@ -4,23 +4,18 @@ declare(strict_types=1);
 
 namespace Phpolar\SqliteStorage;
 
+use Phpolar\SqliteStorage\TestClasses\TestClassWithoutPrimaryKey;
+use Phpolar\SqliteStorage\TestClasses\TestClassWithPrimaryKey;
 use Phpolar\SqliteStorage\Exception\{
-    InvalidColumnNamesException,
-    ItemClassException,
-    ItemNotObjectException,
     NonExistentClassException,
     NonExistentPrimaryKeyAccessorException,
 };
-use Phpolar\SqliteStorage\TestClasses\TestClassWithAgeAndHeight;
-use Phpolar\SqliteStorage\TestClasses\TestClassWithInvalidProps;
-use Phpolar\SqliteStorage\TestClasses\TestClassWithoutPrimaryKey;
-use Phpolar\SqliteStorage\TestClasses\TestClassWithPrimaryKey;
 use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\CoversTrait;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\Attributes\TestWith;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SQLite3;
@@ -29,14 +24,15 @@ use SQLite3Result;
 use SQLite3Stmt;
 use stdClass;
 
-#[CoversClass(SqliteStorage::class)]
+#[CoversClass(SqliteReadOnlyStorage::class)]
 #[CoversClass(StorageLifeCycleHooks::class)]
-#[CoversNamespace("Phpolar\SqliteStorage\Exception")]
+#[CoversClass(NonExistentClassException::class)]
+#[CoversClass(NonExistentPrimaryKeyAccessorException::class)]
 #[CoversTrait(SqliteReadTrait::class)]
-#[CoversTrait(SqliteWriteTrait::class)]
-final class SqliteStorageTest extends TestCase
+#[UsesClass(SqliteStorage::class)]
+final class SqliteReadOnlyStorageTest extends TestCase
 {
-    private SqliteStorage $sut;
+    private SqliteReadOnlyStorage $sut;
     private SQLite3&MockObject $connectionMock;
 
     protected function setUp(): void
@@ -49,7 +45,7 @@ final class SqliteStorageTest extends TestCase
                 $this->createMock(\SQLite3Result::class),
             );
 
-        $this->sut = new SqliteStorage(
+        $this->sut = new SqliteReadOnlyStorage(
             connection: $this->connectionMock,
             tableName: "test_table",
             typeClassName: TestClassWithPrimaryKey::class,
@@ -70,7 +66,7 @@ final class SqliteStorageTest extends TestCase
         $this->expectExceptionMessageMatches(
             "/^The class [[:alnum:]\\\]+ does not exist.$/"
         );
-        new SqliteStorage(
+        new SqliteReadOnlyStorage(
             connection: $this->createMock(SQLite3::class),
             tableName: "test_table",
             typeClassName: "NonExistentClass",
@@ -85,7 +81,7 @@ final class SqliteStorageTest extends TestCase
         $this->expectExceptionMessageMatches(
             "/^The class [[:alnum:]\\\]+ should have either a 'getPrimaryKey' method or an 'id' property.$/"
         );
-        new SqliteStorage(
+        new SqliteReadOnlyStorage(
             connection: $this->createMock(SQLite3::class),
             tableName: "test_table",
             typeClassName: stdClass::class,
@@ -101,144 +97,6 @@ final class SqliteStorageTest extends TestCase
             ->method("close");
 
         $this->sut->close();
-    }
-
-    #[Test]
-    #[TestDox("Shall throw an exception when preparing a statement fails during persist")]
-    #[TestWith([["id" => "id1", "name" => "name1"]])]
-    public function ewijofe(array $data): void
-    {
-        $this->connectionMock
-            ->expects($this->atLeastOnce())
-            ->method("prepare")
-            ->willReturn(false);
-        $this->connectionMock
-            ->expects($this->atLeastOnce())
-            ->method("lastErrorMsg")
-            ->willReturn("Prepare failed");
-
-        $item1 = new TestClassWithPrimaryKey($data);
-
-        $this->sut->save($item1->id, $item1);
-
-        $this->expectException(SQLite3Exception::class);
-        $this->expectExceptionMessage("Prepare failed");
-
-        $this->sut->persist();
-    }
-
-    #[Test]
-    #[TestDox("Shall throw an exception when trying to persist non-object items")]
-    #[TestWith([0x0ABCDEF])]
-    #[TestWith(["a string value"])]
-    public function ewijofew(string|int $scalarValue): void
-    {
-        $this->sut->save(1, $scalarValue);
-
-        $this->expectException(ItemNotObjectException::class);
-        $this->expectExceptionMessage("The item must be an object");
-
-        $this->sut->persist();
-    }
-
-    #[Test]
-    #[TestDox("Shall throw an exception when trying to persist items of a non-matching class")]
-    public function ewijofewx(): void
-    {
-        $this->sut->save(1, (object) ["id" => "id1"]);
-
-        $this->expectException(ItemClassException::class);
-        $this->expectExceptionMessageMatches(
-            "/^The item must be a [[:alnum:]\\\]+$/"
-        );
-
-        $this->sut->persist();
-    }
-
-    #[Test]
-    #[TestDox("Shall throw an exception when one or more column names are invalid")]
-    #[TestWith([["id" => 1, "1invalid-name" => "value"]])]
-    #[TestWith([["id" => 1, "../" => "value"]])]
-    #[TestWith([["id" => 1, ";1=1" => "value"]])]
-    #[TestWith([["id" => 1, "--;1=1" => "value"]])]
-    public function ewijofewf(array $data): void
-    {
-        $sut = new SqliteStorage(
-            connection: $this->connectionMock,
-            tableName: "test_table",
-            typeClassName: TestClassWithInvalidProps::class,
-        );
-        $sut->save(1, new TestClassWithInvalidProps($data));
-        $this->expectException(InvalidColumnNamesException::class);
-        $this->expectExceptionMessage("One or more column names are invalid.");
-        $sut->persist();
-    }
-
-    #[Test]
-    #[TestDox("Shall call bindParam with the expected parameters during persist")]
-    #[TestWith([[["id" => "id1", "name" => "name1", "age" => 25, "height" => 5.9]]])]
-    #[TestWith([[["id" => "id2", "name" => "name2", "age" => 30, "height" => 6.1]]])]
-    public function ewijofewfg(array $data): void
-    {
-        $sut = new SqliteStorage(
-            connection: $this->connectionMock,
-            tableName: "test_table",
-            typeClassName: TestClassWithAgeAndHeight::class
-        );
-
-        /**
-         * @var array<int,array<string,string>> $data
-         */
-        foreach ($data as $item) {
-            $sut->save($item["id"], new TestClassWithAgeAndHeight($item));
-        }
-
-        $stmtMock = $this->createMock(\SQLite3Stmt::class);
-        $this->connectionMock
-            ->expects($this->exactly(2))
-            ->method("prepare")
-            ->withAnyParameters()
-            ->willReturn($stmtMock);
-
-        $stmtMock
-            ->expects($this->exactly(count(array_keys($data[0])) * count($data)))
-            ->method("bindParam")
-            ->withAnyParameters();
-
-        $stmtMock
-            ->expects($this->once())
-            ->method("bindValue")
-            ->willReturn(true);
-
-        $stmtMock
-            ->expects($this->atLeast(count($data)))
-            ->method("execute")
-            ->willReturn($this->createMock(SQLite3Result::class));
-
-        $sut->persist();
-        $sut->clear();
-    }
-
-    #[Test]
-    #[TestDox("Shall throw an exception when preparing a statement fails during persist")]
-    #[TestWith([["id" => "id1", "name" => "name1"]])]
-    public function ewijofewfgh(array $data): void
-    {
-        $this->connectionMock
-            ->expects($this->atLeastOnce())
-            ->method("prepare")
-            ->willReturn(false);
-        $this->connectionMock
-            ->expects($this->atLeastOnce())
-            ->method("lastErrorMsg")
-            ->willReturn("Execute failed");
-
-        $item1 = new TestClassWithPrimaryKey($data);
-        $this->sut->save($item1->id, $item1);
-        $this->expectException(Sqlite3Exception::class);
-        $this->expectExceptionMessage("Execute failed");
-
-        $this->sut->persist();
     }
 
     #[Test]
@@ -377,46 +235,6 @@ final class SqliteStorageTest extends TestCase
     }
 
     #[Test]
-    #[TestDox("Shall throw a runtime exception when executing the statement fails")]
-    #[TestWith([["id" => "id1", "name" => "name1"]])]
-    public function fjiods(array $data): void
-    {
-        $stmtMock = $this->createMock(SQLite3Stmt::class);
-        $connectionMock = $this->createMock(SQLite3::class);
-        $stmtMock
-            ->expects($this->once())
-            ->method("execute")
-            ->willReturn(false);
-        $connectionMock
-            ->method("query")
-            ->willReturn($this->createStub(SQLite3Result::class));
-        $connectionMock
-            ->expects($this->once())
-            ->method("prepare")
-            ->willReturn(
-                $stmtMock,
-            );
-        $connectionMock
-            ->expects($this->atLeastOnce())
-            ->method("lastErrorMsg")
-            ->willReturn("Execute failed");
-        $sut = new SqliteStorage(
-            connection: $connectionMock,
-            tableName: "test_table",
-            typeClassName: TestClassWithPrimaryKey::class,
-        );
-
-        $item = new TestClassWithPrimaryKey($data);
-
-        $sut->save($item->id, $item);
-
-        $this->expectException(Sqlite3Exception::class);
-        $this->expectExceptionMessage("Execute failed");
-
-        $sut->persist();
-    }
-
-    #[Test]
     #[TestDox("Shall throw an exception querying the database fails during load")]
     public function ewijofewfghjk(): void
     {
@@ -448,5 +266,41 @@ final class SqliteStorageTest extends TestCase
         $this->expectExceptionMessage("Query failed");
 
         $sut->load();
+    }
+
+    #[Test]
+    #[TestDox("Shall not persist items")]
+    #[TestWith([["id" => "id1", "name" => "name1"]])]
+    public function dfsijo(array $data)
+    {
+        $connectionMock = $this->createMock(SQLite3::class);
+        $stmtMock = $this->createMock(SQLite3Stmt::class);
+        $resultStub = $this->createStub(SQLite3Result::class);
+        $resultStub
+            ->method("fetchArray")
+            ->willReturn(
+                $data,
+                false
+            );
+        $stmtMock
+            ->expects($this->never())
+            ->method("bindParam");
+        $stmtMock
+            ->expects($this->never())
+            ->method("execute");
+        $connectionMock
+            ->method("query")
+            ->willReturn($resultStub);
+        $connectionMock
+            ->method("prepare")
+            ->willReturn($stmtMock);
+
+        $sut = new SqliteReadOnlyStorage(
+            connection: $connectionMock,
+            tableName: "test_table",
+            typeClassName: TestClassWithPrimaryKey::class,
+        );
+
+        $sut->persist();
     }
 }
