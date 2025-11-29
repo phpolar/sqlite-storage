@@ -441,4 +441,40 @@ final class SqliteStorageTest extends TestCase
 
         $sut->load();
     }
+
+    #[Test]
+    #[TestDox("Shall not persist items if the connection is readonly")]
+    #[TestWith([["id" => "id1", "name" => "name1"]])]
+    public function dfsijo(array $data)
+    {
+        $connectionMock = $this->createMock(SQLite3::class);
+        $stmtMock = $this->createMock(SQLite3Stmt::class);
+        $resultStub = $this->createStub(SQLite3Result::class);
+        $resultStub
+            ->method("fetchArray")
+            ->willReturn(
+                $data,
+                false
+            );
+        $stmtMock
+            ->expects($this->never())
+            ->method("bindParam");
+        $stmtMock
+            ->expects($this->never())
+            ->method("execute");
+        $connectionMock
+            ->method("query")
+            ->willReturn($resultStub);
+        $connectionMock
+            ->method("prepare")
+            ->willReturn($stmtMock);
+
+        $sut = new SqliteReadOnlyStorage(
+            connection: $connectionMock,
+            tableName: "test_table",
+            typeClassName: TestClassWithPrimaryKey::class,
+        );
+
+        unset($sut); // triggers call to persist
+    }
 }

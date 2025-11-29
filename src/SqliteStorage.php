@@ -64,6 +64,10 @@ final class SqliteStorage extends AbstractStorage implements
      */
     public function close(): void
     {
+        /**
+         * See the recommendation here https://sqlite.org/pragma.html#pragma_optimize.
+         */
+        $this->connection->exec("PRAGMA optimize");
         $this->connection->close();
     }
 
@@ -111,6 +115,7 @@ final class SqliteStorage extends AbstractStorage implements
         if (count($this) === 0) {
             return;
         }
+
 
         /**
          * @var object[]

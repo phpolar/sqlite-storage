@@ -58,7 +58,7 @@ final class SqliteStorageIntegrationTest extends TestCase
             <<<SQL
             CREATE TABLE IF NOT EXISTS "$tableName"
             (
-                [id] TEXT, 
+                [id] TEXT,
                 [name] TEXT,
                 PRIMARY KEY([id] ASC)
             )
@@ -226,6 +226,63 @@ final class SqliteStorageIntegrationTest extends TestCase
         $this->assertSame($row["name"], $expectedName);
     }
 
+
+    #[Test]
+    #[TestDox("Shall not persist items to the database")]
+    #[TestWith([["id" => "id1", "name" => "replacement_name"], "id1", "replacement_name", self::TABLE_NAME])]
+    public function dfsijoxds(array $data, string $expectedId, string $expectedName, string $tableName)
+    {
+        $sut = new SqliteReadOnlyStorage(
+            connection: new SQLite3(
+                filename: self::DB_FILE_NAME,
+                flags: \SQLITE3_OPEN_READONLY,
+            ),
+            tableName: self::TABLE_NAME,
+            typeClassName: TestClassWithPrimaryKey::class,
+        );
+        $item1 = new TestClassWithPrimaryKey($data);
+        $sut->replace($item1->getPrimaryKey(), $item1);
+
+        // persist items to database
+        unset($sut);
+        \gc_collect_cycles();
+
+        $connection = new SQLite3(
+            filename: self::DB_FILE_NAME,
+            flags: \SQLITE3_OPEN_READONLY
+        );
+
+        $stmt = $connection->prepare(
+            <<<SQL
+            SELECT * FROM "{$tableName}" WHERE [id]=:id
+            SQL
+        );
+
+
+        $this->assertInstanceOf(SQLite3Stmt::class, $stmt);
+
+        if ($stmt === false) {
+            throw new Exception("Was not caught by assertion.");
+        }
+
+        $stmt->bindValue(":id", $item1->getPrimaryKey());
+
+        $result = $stmt->execute();
+
+        $this->assertInstanceOf(SQLite3Result::class, $result);
+
+        if ($result === false) {
+            throw new Exception("Was not caught by assertion.");
+        }
+
+        $row = $result->fetchArray(\SQLITE3_ASSOC);
+
+        $this->assertIsArray($row);
+
+        $this->assertSame($row["id"], $expectedId);
+        $this->assertNotSame($row["name"], $expectedName);
+    }
+
     #[Test]
     #[TestDox("Shall remove items in the database")]
     #[TestWith([["id" => "id1", "name" => "replacement_name"],  self::TABLE_NAME])]
@@ -253,5 +310,21 @@ final class SqliteStorageIntegrationTest extends TestCase
         );
 
         $this->assertSame(count(self::DATA) - 1, $numRows);
+    }
+
+    #[Test]
+    #[TestDox("Shall not automatically persist items in a readonly database")]
+    public function dfsiqefwpkjo()
+    {
+        $sut = new SqliteStorage(
+            connection: new SQLite3(
+                filename: self::DB_FILE_NAME,
+                flags: \SQLITE3_OPEN_READONLY,
+            ),
+            tableName: self::TABLE_NAME,
+            typeClassName: TestClassWithPrimaryKey::class
+        );
+
+        unset($sut); // triggers automatic actions
     }
 }
