@@ -8,8 +8,8 @@
     failOnWarning="false"
     colors="false"
     cacheDirectory=".phpunit.cache"
-    requireCoverageMetadata="false"
-    beStrictAboutCoverageMetadata="false">
+    requireCoverageMetadata="true"
+    beStrictAboutCoverageMetadata="true">
   <testsuites>
     <testsuite name="default">
       <directory>tests/unit</directory>

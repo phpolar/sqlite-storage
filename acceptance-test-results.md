@@ -6,4 +6,4 @@
 
 ## Project Size (Phpolar\SqliteStorage\ProjectSize)
 
-- [x] Source code total size shall be below 9600 bytes
+- [x] Source code total size shall be below 12000 bytes

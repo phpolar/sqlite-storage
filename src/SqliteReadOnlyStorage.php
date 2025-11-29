@@ -20,16 +20,15 @@ use SQLite3;
 /**
  * Adds support for managing data in a SQLite database.
  *
- * Data is automatically loaded and persisted
+ * Data is automatically loaded
  */
-final class SqliteStorage extends AbstractStorage implements
+final class SqliteReadOnlyStorage extends AbstractStorage implements
     Closable,
     Countable,
     Loadable,
     Persistable
 {
     use SqliteReadTrait;
-    use SqliteWriteTrait;
 
     public function __construct(
         /**
@@ -70,10 +69,19 @@ final class SqliteStorage extends AbstractStorage implements
      */
     public function close(): void
     {
-        /**
-         * See the recommendation here https://sqlite.org/pragma.html#pragma_optimize.
-         */
-        $this->connection->exec("PRAGMA optimize");
         $this->connection->close();
+    }
+
+    /**
+     * Persist changes to the database.
+     */
+    public function persist(): void
+    {
+        /**
+         * intentionally empty
+         * this is a read only connection
+         * so we will not be persisting
+         * anything to the database
+         */
     }
 }
